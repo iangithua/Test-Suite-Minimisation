@@ -2,6 +2,7 @@ package de.uni_passau.fim.se2.sbse.suite_minimisation.utils;
 
 import de.uni_passau.fim.se2.sbse.suite_minimisation.algorithms.GeneticAlgorithm;
 import de.uni_passau.fim.se2.sbse.suite_minimisation.algorithms.SearchAlgorithmType;
+import de.uni_passau.fim.se2.sbse.suite_minimisation.chromosomes.BinaryChromosom;
 import de.uni_passau.fim.se2.sbse.suite_minimisation.chromosomes.Chromosome;
 import de.uni_passau.fim.se2.sbse.suite_minimisation.fitness_functions.*;
 import de.uni_passau.fim.se2.sbse.suite_minimisation.stopping_conditions.StoppingCondition;
@@ -74,9 +75,45 @@ public class AlgorithmBuilder {
      * the `numberTestCases` field.
      */
     private MinimizingFitnessFunction<? extends Chromosome<?>> makeTestSuiteSizeFitnessFunction() {
-        throw new UnsupportedOperationException("Implement me!");
-    }
+        return chromosome -> {
 
+            // Cast the generic chromosome to BinaryChromosome
+            BinaryChromosom binaryChromosome = (BinaryChromosom) chromosome;
+
+            // Retrieve gene selection array (true = test case selected)
+            boolean[] genes = binaryChromosome.getGenes();
+
+            // Track line coverage across all selected test cases
+            boolean[] coverage = new boolean[numberLines];
+
+            // Iterate through all test cases
+            for (int i = 0; i < numberTestCases; i++) {
+
+                // Process only selected test cases
+                if (genes[i]) {
+
+                    // Mark lines covered by this test case
+                    for (int j = 0; j < numberLines; j++) {
+                        if (coverageMatrix[i][j]) {
+                            coverage[j] = true;
+                        }
+                    }
+                }
+            }
+
+            // Count the total number of covered lines
+            int coveredLines = 0;
+            for (boolean covered : coverage) {
+                if (covered) {
+                    coveredLines++;
+                }
+            }
+
+            // Return fitness value as line coverage ratio
+            return (double) coveredLines / numberLines;
+        };
+
+    }
     /**
      * Creates a new normalizing fitness function that measures the coverage of a given test suite chromosome.
      *
