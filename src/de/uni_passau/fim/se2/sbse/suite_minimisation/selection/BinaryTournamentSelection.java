@@ -45,20 +45,19 @@ public class BinaryTournamentSelection<C extends Chromosome<C>> implements Selec
      */
     @Override
     public C apply(final List<C> population) throws NullPointerException, NoSuchElementException {
-        // Validate input
-        requireNonNull(population, "The population must not be null.");
         if (population.isEmpty()) {
-            throw new NoSuchElementException("The population is empty.");
+            throw new NoSuchElementException("Population cannot be empty");
         }
-        // Conduct tournament
-        final Set<Integer> selectedIndices = new HashSet<>();
-        while (selectedIndices.size() < TOURNAMENT_SIZE) {
-            final int index = random.nextInt(population.size());
-            selectedIndices.add(index);
-        }
-        final Iterator<Integer> iterator = selectedIndices.iterator();
-        final C first = population.get(iterator.next());
-        final C second = population.get(iterator.next());
-        return comparator.compare(first, second) <= 0 ? first : second;
+
+        // Randomly select two unique individuals from the population
+        C first = selectRandom(population);
+        C second = selectRandom(population);
+
+        // Compare the two and return the better one
+        return comparator.compare(first, second) > 0 ? first : second;
+    }
+    private C selectRandom(List<C> population) {
+        int index = random.nextInt(population.size());
+        return population.get(index);
     }
 }
