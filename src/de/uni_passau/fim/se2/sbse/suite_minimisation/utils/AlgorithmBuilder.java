@@ -1,13 +1,16 @@
 package de.uni_passau.fim.se2.sbse.suite_minimisation.utils;
 
 import de.uni_passau.fim.se2.sbse.suite_minimisation.algorithms.GeneticAlgorithm;
+import de.uni_passau.fim.se2.sbse.suite_minimisation.algorithms.NSGA2;
 import de.uni_passau.fim.se2.sbse.suite_minimisation.algorithms.RandomSearch;
 import de.uni_passau.fim.se2.sbse.suite_minimisation.algorithms.SearchAlgorithmType;
 import de.uni_passau.fim.se2.sbse.suite_minimisation.chromosomes.BinaryChromosom;
 import de.uni_passau.fim.se2.sbse.suite_minimisation.chromosomes.BinaryChromosomGenerator;
 import de.uni_passau.fim.se2.sbse.suite_minimisation.chromosomes.Chromosome;
 import de.uni_passau.fim.se2.sbse.suite_minimisation.chromosomes.ChromosomeGenerator;
+import de.uni_passau.fim.se2.sbse.suite_minimisation.crossover.BinaryCrossover;
 import de.uni_passau.fim.se2.sbse.suite_minimisation.fitness_functions.*;
+import de.uni_passau.fim.se2.sbse.suite_minimisation.mutation.BinaryMutation;
 import de.uni_passau.fim.se2.sbse.suite_minimisation.stopping_conditions.StoppingCondition;
 
 import java.util.Arrays;
@@ -197,7 +200,41 @@ public class AlgorithmBuilder {
      */
     @SuppressWarnings("unchecked")
     private GeneticAlgorithm<? extends Chromosome<?>> buildNSGA2() {
-        throw new UnsupportedOperationException("Implement me!");
+        // Create a chromosome generator for binary test-suite chromosomes
+        // Each chromosome represents a subset of test cases
+        ChromosomeGenerator<BinaryChromosom> generator =
+                new BinaryChromosomGenerator(numberTestCases);
+
+        // Create a mutation operator for binary chromosomes
+        // Mutation flips individual genes with a small probability
+        BinaryMutation mutation = new BinaryMutation(0.1);
+
+        // Create a crossover operator for binary chromosomes
+        // Crossover combines two parent chromosomes to produce offspring
+        BinaryCrossover crossover = new BinaryCrossover();
+
+        // Collect the fitness functions used for multi-objective optimization
+        // - sizeFF: minimizes the number of selected test cases
+        // - coverageFF: maximizes line coverage
+        List<FitnessFunction<BinaryChromosom>> fitnessFunctions =
+                List.of(
+                        (FitnessFunction<BinaryChromosom>) sizeFF,
+                        (FitnessFunction<BinaryChromosom>) coverageFF
+                );
+
+        // Create and return the NSGA-II algorithm instance
+        // NSGA-II maintains a population of solutions and evolves them using:
+        // - non-dominated sorting
+        // - crowding distance
+        // - mutation and crossover
+        return new NSGA2<>(
+                generator,
+                mutation,
+                crossover,
+                fitnessFunctions,
+                stoppingCondition,
+                random
+        );
     }
 
     /**
