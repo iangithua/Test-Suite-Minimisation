@@ -1,17 +1,15 @@
 package de.uni_passau.fim.se2.sbse.suite_minimisation.algorithms;
 
+import de.uni_passau.fim.se2.sbse.suite_minimisation.chromosomes.BinaryChromosom;
 import de.uni_passau.fim.se2.sbse.suite_minimisation.chromosomes.Chromosome;
 import de.uni_passau.fim.se2.sbse.suite_minimisation.chromosomes.ChromosomeGenerator;
 import de.uni_passau.fim.se2.sbse.suite_minimisation.crossover.Crossover;
 import de.uni_passau.fim.se2.sbse.suite_minimisation.fitness_functions.FitnessFunction;
-import de.uni_passau.fim.se2.sbse.suite_minimisation.fitness_functions.MinimizingFitnessFunction;
 import de.uni_passau.fim.se2.sbse.suite_minimisation.mutation.Mutation;
 import de.uni_passau.fim.se2.sbse.suite_minimisation.stopping_conditions.StoppingCondition;
 import de.uni_passau.fim.se2.sbse.suite_minimisation.utils.Pair;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 public class NSGA2<C extends Chromosome<C>> implements GeneticAlgorithm<C> {
 
@@ -22,7 +20,7 @@ public class NSGA2<C extends Chromosome<C>> implements GeneticAlgorithm<C> {
     private final StoppingCondition stoppingCondition;
     private final Random random;
 
-    private final int populationSize = 100; // default population size
+    private final int populationSize = 100;
     private final List<C> population = new ArrayList<>();
 
     public NSGA2(
@@ -44,12 +42,12 @@ public class NSGA2<C extends Chromosome<C>> implements GeneticAlgorithm<C> {
     @Override
     public List<C> findSolution() {
 
-        // Notify stopping condition that search has started
         stoppingCondition.notifySearchStarted();
 
-        // Generate initial population
+        // Generate initial population with guaranteed coverage
         for (int i = 0; i < populationSize && !stoppingCondition.searchMustStop(); i++) {
             C candidate = generator.get();
+            if (!hasCoverage(candidate)) candidate = forceCoverage(candidate);
             population.add(candidate);
             stoppingCondition.notifyFitnessEvaluation();
         }
@@ -57,52 +55,52 @@ public class NSGA2<C extends Chromosome<C>> implements GeneticAlgorithm<C> {
         // Main NSGA-II loop
         while (!stoppingCondition.searchMustStop()) {
 
-            // Create offspring population
             List<C> offspring = new ArrayList<>();
 
-            // Generate offspring via selection, crossover, and mutation
             while (offspring.size() < populationSize) {
                 C parent1 = tournamentSelection();
                 C parent2 = tournamentSelection();
 
-                // Apply crossover
+                // Crossover
                 Pair<C> children = crossover.apply(parent1, parent2);
 
-                // Apply mutation
+                // Mutation
                 C child1 = mutation.apply(children.getFst());
                 C child2 = mutation.apply(children.getSnd());
 
+                if (!hasCoverage(child1)) child1 = forceCoverage(child1);
+                if (!hasCoverage(child2)) child2 = forceCoverage(child2);
+
                 offspring.add(child1);
-                if (offspring.size() < populationSize) {
-                    offspring.add(child2);
-                }
+                if (offspring.size() < populationSize) offspring.add(child2);
             }
 
-            // Combine current population with offspring
+            // Combine population and offspring
             population.addAll(offspring);
 
-            // Apply non-dominated sorting
+            // Non-dominated sorting
             List<List<C>> fronts = nonDominatedSort(population);
 
-            // Build next generation preserving Pareto fronts and crowding
+            // Compute crowding distances
+            for (List<C> front : fronts) computeCrowdingDistance(front);
+
+            // Fill next generation preserving Pareto fronts and crowding
             population.clear();
             for (List<C> front : fronts) {
                 if (population.size() + front.size() <= populationSize) {
                     population.addAll(front);
                 } else {
-                    // Fill remaining slots using crowding distance
-                    front.sort(this::compareByCrowdingDistance);
+                    front.sort(Comparator.comparingDouble(f -> -f.getCrowdingDistance()));
                     int remaining = populationSize - population.size();
                     population.addAll(front.subList(0, remaining));
                     break;
                 }
             }
 
-            // Notify stopping condition of fitness evaluations
             stoppingCondition.notifyFitnessEvaluation();
         }
 
-        // Return the final Pareto front (non-dominated solutions)
+        // Return non-dominated solutions
         return getParetoFront(population);
     }
 
@@ -111,26 +109,34 @@ public class NSGA2<C extends Chromosome<C>> implements GeneticAlgorithm<C> {
         return stoppingCondition;
     }
 
-    // ------------------------------
-    // Helper methods
-    // ------------------------------
+    private boolean hasCoverage(C candidate) {
+        double coverage = fitnessFunctions.get(1).applyAsDouble(candidate);
+        return coverage > 0;
+    }
 
-    // Simple tournament selection
+    private C forceCoverage(C candidate) {
+        // For binary chromosomes, flip a random gene to true
+        if (candidate instanceof BinaryChromosom binary) {
+            boolean[] genes = binary.getGenes();
+            genes[random.nextInt(genes.length)] = true;
+            return (C) new BinaryChromosom(genes, binary.getMutation(), binary.getCrossover());
+        }
+        return candidate;
+    }
+
     private C tournamentSelection() {
         C a = population.get(random.nextInt(population.size()));
         C b = population.get(random.nextInt(population.size()));
         return dominates(a, b) ? a : b;
     }
 
-    // Check if solution1 dominates solution2
     private boolean dominates(C s1, C s2) {
         boolean betterInAtLeastOne = false;
-
         for (FitnessFunction<C> ff : fitnessFunctions) {
             double f1 = ff.applyAsDouble(s1);
             double f2 = ff.applyAsDouble(s2);
 
-            if (ff instanceof MinimizingFitnessFunction) {
+            if (ff.isMinimizing()) {
                 if (f1 > f2) return false;
                 if (f1 < f2) betterInAtLeastOne = true;
             } else {
@@ -141,7 +147,6 @@ public class NSGA2<C extends Chromosome<C>> implements GeneticAlgorithm<C> {
         return betterInAtLeastOne;
     }
 
-    // Non-dominated sorting: returns list of fronts
     private List<List<C>> nonDominatedSort(List<C> solutions) {
         List<List<C>> fronts = new ArrayList<>();
         List<C> remaining = new ArrayList<>(solutions);
@@ -156,9 +161,7 @@ public class NSGA2<C extends Chromosome<C>> implements GeneticAlgorithm<C> {
                         break;
                     }
                 }
-                if (!dominated) {
-                    front.add(candidate);
-                }
+                if (!dominated) front.add(candidate);
             }
             remaining.removeAll(front);
             fronts.add(front);
@@ -166,13 +169,37 @@ public class NSGA2<C extends Chromosome<C>> implements GeneticAlgorithm<C> {
         return fronts;
     }
 
-    // Placeholder crowding distance comparison
-    private int compareByCrowdingDistance(C a, C b) {
-        // Simple random tie-breaker (for demo)
-        return random.nextInt(3) - 1;
+    private void computeCrowdingDistance(List<C> front) {
+        int n = front.size();
+        if (n == 0) return;
+
+        double[] distance = new double[n];
+        Arrays.fill(distance, 0);
+
+        int numObjectives = fitnessFunctions.size();
+        for (int m = 0; m < numObjectives; m++) {
+            FitnessFunction<C> ff = fitnessFunctions.get(m);
+            final int idx = m;
+            front.sort(Comparator.comparingDouble(ff::applyAsDouble));
+            distance[0] = distance[n - 1] = Double.POSITIVE_INFINITY;
+
+            double fMin = ff.applyAsDouble(front.get(0));
+            double fMax = ff.applyAsDouble(front.get(n - 1));
+            if (fMax - fMin == 0) continue;
+
+            for (int i = 1; i < n - 1; i++) {
+                double fNext = ff.applyAsDouble(front.get(i + 1));
+                double fPrev = ff.applyAsDouble(front.get(i - 1));
+                distance[i] += (fNext - fPrev) / (fMax - fMin);
+            }
+        }
+
+        // Store crowding distance in chromosome
+        for (int i = 0; i < n; i++) {
+            front.get(i).setCrowdingDistance(distance[i]);
+        }
     }
 
-    // Return non-dominated solutions only
     private List<C> getParetoFront(List<C> solutions) {
         List<C> paretoFront = new ArrayList<>();
         for (C candidate : solutions) {
@@ -183,9 +210,7 @@ public class NSGA2<C extends Chromosome<C>> implements GeneticAlgorithm<C> {
                     break;
                 }
             }
-            if (!dominated) {
-                paretoFront.add(candidate);
-            }
+            if (!dominated) paretoFront.add(candidate);
         }
         return paretoFront;
     }

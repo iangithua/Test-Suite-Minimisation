@@ -18,7 +18,7 @@ import java.util.Objects;
  * parameter, here: {@code C extends Chromosome<C>}.
  */
 public abstract class Chromosome<C extends Chromosome<C>> implements SelfTyped<C> {
-
+    private double crowdingDistance = 0.0;
     /**
      * The mutation operator telling how to mutate a chromosome of the current type.
      */
@@ -129,4 +129,12 @@ public abstract class Chromosome<C extends Chromosome<C>> implements SelfTyped<C
      */
     @Override
     public abstract int hashCode(); // enforce custom implementation
+
+    public void setCrowdingDistance(double distance) {
+        this.crowdingDistance = distance;
+    }
+
+    public double getCrowdingDistance() {
+        return crowdingDistance;
+    }
 }
