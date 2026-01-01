@@ -62,6 +62,47 @@ public class Utils {
             final double r1,
             final double r2)
             throws IllegalArgumentException {
-        throw new UnsupportedOperationException("Implement me!");
+        // Validate input Pareto front
+        if (front == null || front.isEmpty()) {
+            throw new IllegalArgumentException("Pareto front must not be null or empty.");
+        }
+
+        // Create a modifiable copy of the Pareto front
+        List<Object> sortedFront = new ArrayList<>(front);
+
+        // Sort solutions by the first objective value (f1) in ascending order
+        sortedFront.sort(Comparator.comparingDouble(c -> f1.applyAsDouble(c)));
+
+        // Initialize hyper-volume accumulator
+        double hyperVolume = 0.0;
+
+        // Previous f1 value starts at the reference point r1
+        double previousF1 = r1;
+
+        // Iterate over the sorted Pareto front to compute hyper-volume
+        for (Object chromosome : sortedFront) {
+
+            // Evaluate objective values for the current solution
+            double currentF1 = f1.applyAsDouble(chromosome);
+            double currentF2 = f2.applyAsDouble(chromosome);
+
+            // Compute rectangle dimensions
+            // Width: difference along f1 axis
+            // Height: difference from reference point r2 to current f2
+            double width = currentF1 - previousF1;
+            double height = r2 - currentF2;
+
+            // Add rectangle area only if dimensions are valid
+            if (width > 0.0 && height > 0.0) {
+                hyperVolume += width * height;
+            }
+
+            // Update previous f1 value for the next rectangle
+            previousF1 = currentF1;
+        }
+
+        // Return the computed hyper-volume value
+        return hyperVolume;
+
     }
 }
