@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+
 public class RandomSearch<C extends Chromosome<C>> implements GeneticAlgorithm<C> {
     // Generates random candidate solutions
     private final ChromosomeGenerator<C> chromosomeGenerator;
