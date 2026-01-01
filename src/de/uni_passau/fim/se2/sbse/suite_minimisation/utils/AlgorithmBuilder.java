@@ -1,12 +1,17 @@
 package de.uni_passau.fim.se2.sbse.suite_minimisation.utils;
 
 import de.uni_passau.fim.se2.sbse.suite_minimisation.algorithms.GeneticAlgorithm;
+import de.uni_passau.fim.se2.sbse.suite_minimisation.algorithms.RandomSearch;
 import de.uni_passau.fim.se2.sbse.suite_minimisation.algorithms.SearchAlgorithmType;
 import de.uni_passau.fim.se2.sbse.suite_minimisation.chromosomes.BinaryChromosom;
+import de.uni_passau.fim.se2.sbse.suite_minimisation.chromosomes.BinaryChromosomGenerator;
 import de.uni_passau.fim.se2.sbse.suite_minimisation.chromosomes.Chromosome;
+import de.uni_passau.fim.se2.sbse.suite_minimisation.chromosomes.ChromosomeGenerator;
 import de.uni_passau.fim.se2.sbse.suite_minimisation.fitness_functions.*;
 import de.uni_passau.fim.se2.sbse.suite_minimisation.stopping_conditions.StoppingCondition;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
 
 public class AlgorithmBuilder {
@@ -127,7 +132,29 @@ public class AlgorithmBuilder {
      * (system-under-test) can be retrieved from the `numberLines` field.
      */
     private MaximizingFitnessFunction<? extends Chromosome<?>> makeTestSuiteCoverageFitnessFunction() {
-        throw new UnsupportedOperationException("Implement me!");
+        return chromosome -> {
+
+            // Cast the generic chromosome to a BinaryChromosome
+            BinaryChromosom binaryChromosome = (BinaryChromosom) chromosome;
+
+            // Retrieve the gene array (true = test case selected)
+            boolean[] genes = binaryChromosome.getGenes();
+
+            // Count the number of selected test cases
+            int selectedTests = 0;
+            for (boolean gene : genes) {
+                if (gene) {
+                    selectedTests++;
+                }
+            }
+
+            // If no test case is selected, return the worst possible normalized value
+            // Otherwise, return the ratio of selected tests to total test cases
+            return selectedTests == 0
+                    ? 1.0
+                    : (double) selectedTests / numberTestCases;
+        };
+
     }
 
     public MinimizingFitnessFunction<? extends Chromosome<?>> getSizeFF() {
@@ -198,6 +225,27 @@ public class AlgorithmBuilder {
      */
     @SuppressWarnings("unchecked")
     private GeneticAlgorithm<? extends Chromosome<?>> buildRandomSearch() {
-        throw new UnsupportedOperationException("Implement me!");
+        // Create a chromosome generator that produces binary chromosomes
+        // Each chromosome represents a selection of test cases
+        ChromosomeGenerator<BinaryChromosom> generator =
+                new BinaryChromosomGenerator(numberTestCases);
+
+        // Collect fitness functions used to evaluate chromosomes
+        // Size fitness minimizes the number of selected test cases
+        // Coverage fitness maximizes the number of covered lines
+        List<FitnessFunction<BinaryChromosom>> fitnessFunctions = Arrays.asList(
+                (FitnessFunction<BinaryChromosom>) sizeFF,
+                (FitnessFunction<BinaryChromosom>) coverageFF
+        );
+
+        // Create and return a Random Search algorithm instance
+        // - generator: produces random chromosomes
+        // - fitnessFunctions: evaluates solution quality
+        // - stoppingCondition: determines when the search terminates
+        return new RandomSearch<>(
+                generator,
+                fitnessFunctions,
+                stoppingCondition
+        );
     }
 }
