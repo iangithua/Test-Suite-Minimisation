@@ -13,6 +13,7 @@ import java.util.*;
 
 public class NSGA2<C extends Chromosome<C>> implements GeneticAlgorithm<C> {
 
+
     private final ChromosomeGenerator<C> generator;
     private final Mutation<C> mutation;
     private final Crossover<C> crossover;
