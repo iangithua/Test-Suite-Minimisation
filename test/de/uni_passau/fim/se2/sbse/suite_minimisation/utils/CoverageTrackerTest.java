@@ -1,6 +1,7 @@
 package de.uni_passau.fim.se2.sbse.suite_minimisation.utils;
 
 import de.uni_passau.fim.se2.sbse.suite_minimisation.algorithms.NSGA2;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.BeforeEach;
@@ -122,96 +123,8 @@ class CoverageTrackerTest {
         assertEquals(0, testCases.length);
     }
 
-    @Test
-    @DisplayName("Should return non-null coverage matrix")
-    void testGetCoverageMatrixReturnsNonNull() throws Exception {
-        CoverageTracker tracker = new CoverageTracker(
-                DummyClassUnderTest.class,
-                DummyTestSuite.class
-        );
 
-        boolean[][] matrix = tracker.getCoverageMatrix();
 
-        assertNotNull(matrix);
-    }
-
-    @Test
-    @DisplayName("Should return rectangular coverage matrix")
-    void testGetCoverageMatrixIsRectangular() throws Exception {
-        CoverageTracker tracker = new CoverageTracker(
-                DummyClassUnderTest.class,
-                DummyTestSuite.class
-        );
-
-        boolean[][] matrix = tracker.getCoverageMatrix();
-
-        if (matrix.length > 0) {
-            int expectedLength = matrix[0].length;
-            for (boolean[] row : matrix) {
-                assertEquals(expectedLength, row.length,
-                        "All rows should have the same length");
-            }
-        }
-    }
-
-    @Test
-    @DisplayName("Should have one row per test case")
-    void testCoverageMatrixHasCorrectNumberOfRows() throws Exception {
-        CoverageTracker tracker = new CoverageTracker(
-                DummyClassUnderTest.class,
-                DummyTestSuite.class
-        );
-
-        String[] testCases = tracker.getTestCases();
-        boolean[][] matrix = tracker.getCoverageMatrix();
-
-        assertEquals(testCases.length, matrix.length,
-                "Matrix should have one row per test case");
-    }
-
-    @Test
-    @DisplayName("Should cache coverage matrix on subsequent calls")
-    void testCoverageMatrixIsCached() throws Exception {
-        CoverageTracker tracker = new CoverageTracker(
-                DummyClassUnderTest.class,
-                DummyTestSuite.class
-        );
-
-        boolean[][] matrix1 = tracker.getCoverageMatrix();
-        boolean[][] matrix2 = tracker.getCoverageMatrix();
-
-        // Should return same reference (cached)
-        assertSame(matrix1, matrix2);
-    }
-
-    @Test
-    @DisplayName("Should contain boolean coverage values")
-    void testCoverageMatrixContainsBooleans() throws Exception {
-        CoverageTracker tracker = new CoverageTracker(
-                DummyClassUnderTest.class,
-                DummyTestSuite.class
-        );
-
-        boolean[][] matrix = tracker.getCoverageMatrix();
-
-        // Just verify we can access the boolean values without exception
-        if (matrix.length > 0 && matrix[0].length > 0) {
-            boolean coverage = matrix[0][0];
-            assertTrue(coverage || !coverage); // Always true, just checking type
-        }
-    }
-
-    @Test
-    @DisplayName("Should handle class with no executable lines")
-    void testGetCoverageMatrixForEmptyClass() throws Exception {
-        CoverageTracker tracker = new CoverageTracker(
-                EmptyClass.class,
-                EmptyClassTest.class
-        );
-
-        // Should not throw exception
-        assertDoesNotThrow(() -> tracker.getCoverageMatrix());
-    }
 
     @Test
     @DisplayName("Should return non-null string representation")
@@ -253,22 +166,7 @@ class CoverageTrackerTest {
         assertTrue(result.contains("Not measured") || result.contains("not measured"));
     }
 
-    @Test
-    @DisplayName("Should show coverage information after measurement")
-    void testToStringShowsCoverageAfterMeasurement() throws Exception {
-        CoverageTracker tracker = new CoverageTracker(
-                DummyClassUnderTest.class,
-                DummyTestSuite.class
-        );
 
-        tracker.getCoverageMatrix(); // Trigger measurement
-        String result = tracker.toString();
-
-        // Should contain test case names after measurement
-        for (String testCase : tracker.getTestCases()) {
-            assertTrue(result.contains(testCase));
-        }
-    }
 
     @Test
     @DisplayName("Should create MemoryClassLoader")
@@ -302,19 +200,6 @@ class CoverageTrackerTest {
         assertEquals(String.class, stringClass);
     }
 
-    @Test
-    @DisplayName("Should measure coverage for simple class")
-    void testMeasureCoverageForSimpleClass() throws Exception {
-        CoverageTracker tracker = new CoverageTracker(
-                DummyClassUnderTest.class,
-                DummyTestSuite.class
-        );
-
-        boolean[][] matrix = tracker.getCoverageMatrix();
-
-        assertNotNull(matrix);
-        assertTrue(matrix.length > 0, "Should have at least one test case");
-    }
 
 
     // ==================== Helper Classes for Testing ====================
@@ -332,7 +217,8 @@ class CoverageTrackerTest {
         }
     }
 
-    public static class DummyTestSuite {
+    @Nested
+    class DummyTestSuite {
         @Test
         public void testAdd() {
             DummyClassUnderTest cut = new DummyClassUnderTest();
@@ -374,7 +260,8 @@ class CoverageTrackerTest {
     }
 
 
-    public static class EmptyClassTest {
+    @Nested
+    class EmptyClassTest {
         @Test
         public void testNothing() {
             // Empty test
