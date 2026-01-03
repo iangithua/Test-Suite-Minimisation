@@ -27,6 +27,9 @@ public class RandomSearch<C extends Chromosome<C>> implements GeneticAlgorithm<C
     // Size of the initial population used to bootstrap the Pareto front
     private final int initialPopulationSize = 500;
 
+    // Generate more candidates per iteration
+    private final int candidatesPerIteration = 20;
+
     // Constructor initializes all required components
     public RandomSearch(ChromosomeGenerator<C> chromosomeGenerator,
                         List<FitnessFunction<C>> fitnessFunctions,
@@ -54,7 +57,7 @@ public class RandomSearch<C extends Chromosome<C>> implements GeneticAlgorithm<C
         while (!stoppingCondition.searchMustStop()) {
 
             // Generate multiple candidates per iteration to improve diversity
-            for (int i = 0; i < 5 && !stoppingCondition.searchMustStop(); i++) {
+            for (int i = 0; i < candidatesPerIteration && !stoppingCondition.searchMustStop(); i++) {
 
                 // Generate a random candidate solution
                 C candidate = chromosomeGenerator.get();
