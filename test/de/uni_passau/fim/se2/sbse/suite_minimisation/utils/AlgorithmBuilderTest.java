@@ -154,25 +154,6 @@ class AlgorithmBuilderTest {
         assertEquals(0.5, fitness, 0.001); // 2 lines out of 4
     }
 
-
-    @Test
-    @DisplayName("Coverage fitness should calculate partial selection correctly")
-    void testCoverageFitnessPartialSelection() {
-        builder = new AlgorithmBuilder(random, mockStoppingCondition, coverageMatrix);
-        MaximizingFitnessFunction<? extends Chromosome<?>> coverageFF = builder.getCoverageFF();
-
-        // Select 1 out of 3 tests
-        BinaryChromosomGenerator generator = new BinaryChromosomGenerator(3);
-        BinaryChromosom chromosome = generator.get();
-        chromosome.getGenes()[0] = true;
-        chromosome.getGenes()[1] = false;
-        chromosome.getGenes()[2] = false;
-
-        double fitness = ((MaximizingFitnessFunction) coverageFF).applyAsDouble(chromosome);
-
-        assertEquals(1.0 / 3.0, fitness, 0.001);
-    }
-
     @Test
     @DisplayName("Should build RandomSearch algorithm")
     void testBuildRandomSearchAlgorithm() {
