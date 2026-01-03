@@ -12,22 +12,22 @@ import java.util.List;
 
 public class RandomSearch<C extends Chromosome<C>> implements GeneticAlgorithm<C> {
 
-    // Generates random chromosomes (candidate solutions)
+    // Generator used to create random candidate chromosomes
     private final ChromosomeGenerator<C> chromosomeGenerator;
 
     // List of fitness functions (e.g., size minimization, coverage maximization)
     private final List<FitnessFunction<C>> fitnessFunctions;
 
-    // Determines when the search should stop
+    // Stopping condition controlling when the search terminates
     private final StoppingCondition stoppingCondition;
 
-    // Stores the current Pareto-optimal (non-dominated) solutions
+    // List storing the current Pareto-optimal (non-dominated) solutions
     private final List<C> paretoFront;
 
-    // Size of the initial population used to bootstrap the Pareto front
-    private final int initialPopulationSize = 500;
+    // Size of the initial random population used to bootstrap the Pareto front
+    private final int initialPopulationSize = 600;
 
-    // Generate more candidates per iteration
+    // Number of candidates generated per iteration to improve exploration
     private final int candidatesPerIteration = 20;
 
     // Constructor initializes all required components
@@ -41,28 +41,25 @@ public class RandomSearch<C extends Chromosome<C>> implements GeneticAlgorithm<C
         this.paretoFront = new ArrayList<>();
     }
 
-    /**
-     * Executes the random search and returns the final Pareto front.
-     */
     @Override
     public List<C> findSolution() {
 
-        // Notify stopping condition that the search has started
+        // Notify the stopping condition that the search has started
         stoppingCondition.notifySearchStarted();
 
-        // Generate an initial diverse population
+        // Generate an initial population to seed the Pareto front
         generateInitialPopulation();
 
-        // Continue sampling random solutions until stopping condition is met
+        // Continue random sampling until the stopping condition is met
         while (!stoppingCondition.searchMustStop()) {
 
-            // Generate multiple candidates per iteration to improve diversity
+            // Generate multiple candidates per iteration to increase diversity
             for (int i = 0; i < candidatesPerIteration && !stoppingCondition.searchMustStop(); i++) {
 
                 // Generate a random candidate solution
                 C candidate = chromosomeGenerator.get();
 
-                // Try to add it to the Pareto front
+                // Attempt to insert the candidate into the Pareto front
                 updateParetoFront(candidate);
 
                 // Notify that a fitness evaluation has occurred
@@ -70,24 +67,22 @@ public class RandomSearch<C extends Chromosome<C>> implements GeneticAlgorithm<C
             }
         }
 
-        // Return a defensive copy of the Pareto front
+        // Return a defensive copy of the final Pareto front
         return new ArrayList<>(paretoFront);
     }
 
-    /**
-     * Generates an initial population to better explore the search space.
-     */
+    // Generates the initial population of random solutions
     private void generateInitialPopulation() {
 
         for (int i = 0; i < initialPopulationSize && !stoppingCondition.searchMustStop(); i++) {
 
-            // Generate random solution
+            // Generate a random candidate
             C candidate = chromosomeGenerator.get();
 
-            // Update Pareto front
+            // Update Pareto front with the candidate
             updateParetoFront(candidate);
 
-            // Notify stopping condition
+            // Notify fitness evaluation
             stoppingCondition.notifyFitnessEvaluation();
         }
     }
@@ -97,12 +92,10 @@ public class RandomSearch<C extends Chromosome<C>> implements GeneticAlgorithm<C
         return stoppingCondition;
     }
 
-    /**
-     * Updates the Pareto front by checking dominance relations.
-     */
+    // Updates the Pareto front by applying dominance checks
     private void updateParetoFront(C candidate) {
 
-        // Discard invalid solutions
+        // Discard invalid or meaningless solutions
         if (!isValidSolution(candidate)) {
             return;
         }
@@ -110,7 +103,7 @@ public class RandomSearch<C extends Chromosome<C>> implements GeneticAlgorithm<C
         boolean candidateIsDominated = false;
         Iterator<C> iterator = paretoFront.iterator();
 
-        // Compare candidate against existing Pareto solutions
+        // Compare candidate against all existing Pareto solutions
         while (iterator.hasNext()) {
             C existing = iterator.next();
 
@@ -125,53 +118,49 @@ public class RandomSearch<C extends Chromosome<C>> implements GeneticAlgorithm<C
             }
         }
 
-        // Add candidate if it is not dominated
+        // Add candidate if it is not dominated by any existing solution
         if (!candidateIsDominated) {
             paretoFront.add(candidate);
         }
     }
 
-    /**
-     * Checks whether a solution is meaningful (non-empty and with coverage).
-     */
+    // Checks whether a solution is meaningful
     private boolean isValidSolution(C candidate) {
 
-        // Fitness function 0: size
+        // Fitness function at index 0: size (minimization)
         double size = fitnessFunctions.get(0).applyAsDouble(candidate);
 
-        // Fitness function 1: coverage
+        // Fitness function at index 1: coverage (maximization)
         double coverage = fitnessFunctions.get(1).applyAsDouble(candidate);
 
         // Require at least one selected test and some coverage
         return size > 0 && coverage > 0;
     }
 
-    /**
-     * Determines whether solution1 Pareto-dominates solution2.
-     */
+    // Determines whether solution1 Pareto-dominates solution2
     private boolean dominates(C solution1, C solution2) {
 
         boolean atLeastOneBetter = false;
 
-        // Compare solutions across all fitness functions
+        // Compare both solutions across all fitness functions
         for (FitnessFunction<C> ff : fitnessFunctions) {
 
             double fitness1 = ff.applyAsDouble(solution1);
             double fitness2 = ff.applyAsDouble(solution2);
 
-            // Minimization objective (e.g., test suite size)
+            // Handle minimizing objectives (e.g., test suite size)
             if (ff instanceof MinimizingFitnessFunction) {
                 if (fitness1 > fitness2) return false;
                 if (fitness1 < fitness2) atLeastOneBetter = true;
             }
-            // Maximization objective (e.g., coverage)
+            // Handle maximizing objectives (e.g., coverage)
             else {
                 if (fitness1 < fitness2) return false;
                 if (fitness1 > fitness2) atLeastOneBetter = true;
             }
         }
 
-        // Must be at least strictly better in one objective
+        // True only if solution1 is strictly better in at least one objective
         return atLeastOneBetter;
     }
 }
