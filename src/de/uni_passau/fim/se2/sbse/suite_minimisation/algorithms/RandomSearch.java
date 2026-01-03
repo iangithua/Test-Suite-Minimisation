@@ -20,7 +20,7 @@ public class RandomSearch<C extends Chromosome<C>> implements GeneticAlgorithm<C
     private final Random random;
 
     // Increased parameters for better exploration
-    private final int initialPopulationSize = 1000;
+    private final int initialPopulationSize = 500;
     private final int candidatesPerIteration = 50;
 
     // Adaptive sampling: percentage of candidates derived from existing solutions
