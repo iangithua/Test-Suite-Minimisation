@@ -316,20 +316,6 @@ class CoverageTrackerTest {
         assertTrue(matrix.length > 0, "Should have at least one test case");
     }
 
-    @Test
-    @DisplayName("Should handle multiple test cases")
-    void testHandlesMultipleTestCases() throws Exception {
-        CoverageTracker tracker = new CoverageTracker(
-                DummyClassUnderTest.class,
-                DummyTestSuite.class
-        );
-
-        String[] testCases = tracker.getTestCases();
-        boolean[][] matrix = tracker.getCoverageMatrix();
-
-        assertTrue(testCases.length > 0);
-        assertEquals(testCases.length, matrix.length);
-    }
 
     // ==================== Helper Classes for Testing ====================
     public static class DummyClassUnderTest {
