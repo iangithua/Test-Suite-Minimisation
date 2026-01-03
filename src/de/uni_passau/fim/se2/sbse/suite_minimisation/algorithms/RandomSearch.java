@@ -19,7 +19,7 @@ public class RandomSearch<C extends Chromosome<C>> implements GeneticAlgorithm<C
     private final List<C> paretoFront;
 
     // Increased initial population for better coverage
-    private final int initialPopulationSize = 500;
+    private final int initialPopulationSize = 600;
 
     // Generate more candidates per iteration
     private final int candidatesPerIteration = 20;
@@ -129,3 +129,4 @@ public class RandomSearch<C extends Chromosome<C>> implements GeneticAlgorithm<C
         return atLeastOneBetter;
     }
 }
+
