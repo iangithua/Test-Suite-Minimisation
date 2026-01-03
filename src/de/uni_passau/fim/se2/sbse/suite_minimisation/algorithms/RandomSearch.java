@@ -25,7 +25,7 @@ public class RandomSearch<C extends Chromosome<C>> implements GeneticAlgorithm<C
     private final List<C> paretoFront;
 
     // Size of the initial population used to bootstrap the Pareto front
-    private final int initialPopulationSize = 200;
+    private final int initialPopulationSize = 500;
 
     // Constructor initializes all required components
     public RandomSearch(ChromosomeGenerator<C> chromosomeGenerator,
