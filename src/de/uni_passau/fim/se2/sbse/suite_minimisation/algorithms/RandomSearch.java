@@ -29,25 +29,56 @@ public class RandomSearch<C extends Chromosome<C>> implements GeneticAlgorithm<C
     @Override
     public List<C> findSolution() {
         List<C> solutions = new ArrayList<>();
+        List<C> goodSolutions = new ArrayList<>();  // Track high-quality solutions
+
         stoppingCondition.notifySearchStarted();
-        // Collect all solutions during the search
+
+        // Phase 1: Build initial pool of diverse solutions
+        int initialSamples = 50;
+        for (int i = 0; i < initialSamples && !stoppingCondition.searchMustStop(); i++) {
+            C candidate = chromosomeGenerator.get();
+
+            // Evaluate fitness
+            for (FitnessFunction<C> ff : fitnessFunctions) {
+                ff.applyAsDouble(candidate);
+            }
+
+            solutions.add(candidate);
+
+            // Track if it has reasonable coverage
+            double coverage = fitnessFunctions.get(1).applyAsDouble(candidate);
+            if (coverage > 0.5) {  // At least 50% coverage
+                goodSolutions.add(candidate);
+            }
+
+            stoppingCondition.notifyFitnessEvaluation();
+        }
+
+
+        // Phase 2:  Collect all solutions during the search
         while (!stoppingCondition.searchMustStop()) {
             C candidate;
             double randomValue = random.nextDouble();
 
             // 92% of time: generate using mutation-based exploration
-            if (randomValue < 0.92) {
+            if (randomValue < 0.85 && !goodSolutions.isEmpty()) {
                 // Generate base candidate
-                C base = chromosomeGenerator.get();
+                C base = goodSolutions.get(random.nextInt(goodSolutions.size()));
 
-
-                // Apply multiple mutations (2-5 times)
-                int mutationCount = 2 + random.nextInt(4);
+                // Apply multiple mutations (3 - 8 times)
+                int mutationCount = 3 + random.nextInt(6);
                 candidate = base;
                 for (int i = 0; i < mutationCount; i++) {
                     candidate = candidate.mutate();
                 }
-            } else {
+            } else if (randomValue < 0.95 && solutions.size() > 10) {
+                // 10% of time: mutate from any previous solution
+                C base = solutions.get(random.nextInt(solutions.size()));
+                int mutationCount = 2 + random.nextInt(5);
+                candidate = base;
+                for (int i = 0; i < mutationCount; i++) {
+                    candidate = candidate.mutate();
+                }}else  {
                 // 8% pure random for exploration
                 candidate = chromosomeGenerator.get();
             }
@@ -58,12 +89,26 @@ public class RandomSearch<C extends Chromosome<C>> implements GeneticAlgorithm<C
                 fitnessFunction.applyAsDouble(candidate);
             }
             solutions.add(candidate);
+            // Update good solutions pool periodically
+            double coverage = fitnessFunctions.get(1).applyAsDouble(candidate);
+            double size = fitnessFunctions.get(0).applyAsDouble(candidate);
+
+            // Add to good pool if high coverage OR small size with decent coverage
+            if (coverage > 0.6 || (size < 0.3 && coverage > 0.4)) {
+                goodSolutions.add(candidate);
+
+                // Keep pool size manageable
+                if (goodSolutions.size() > 100) {
+                    goodSolutions.remove(0);
+                }
+            }
+
             stoppingCondition.notifyFitnessEvaluation();
         }
 
-        // Build Pareto front from all collected solutions at the end
-        List<List<C>> paretoFront = findParetoFront(solutions);
-        return paretoFront.isEmpty() ? List.of(chromosomeGenerator.get()) : paretoFront.get(0);
+        // Build Pareto front using non-dominated sorting
+        List<List<C>> fronts = findParetoFront(solutions);
+        return fronts.isEmpty() ? new ArrayList<>() : fronts.get(0);
     }
 
     @Override
