@@ -60,6 +60,7 @@ public class RandomSearch<C extends Chromosome<C>> implements GeneticAlgorithm<C
             dominatedSolutions.put(individual, new ArrayList<>());
         }
 
+
         // Build fronts
         List<List<C>> fronts = new ArrayList<>();
         List<C> currentFront = new ArrayList<>();
