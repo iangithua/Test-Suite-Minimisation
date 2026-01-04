@@ -3,13 +3,12 @@ package de.uni_passau.fim.se2.sbse.suite_minimisation.algorithms;
 import de.uni_passau.fim.se2.sbse.suite_minimisation.chromosomes.Chromosome;
 import de.uni_passau.fim.se2.sbse.suite_minimisation.chromosomes.ChromosomeGenerator;
 import de.uni_passau.fim.se2.sbse.suite_minimisation.fitness_functions.FitnessFunction;
-import de.uni_passau.fim.se2.sbse.suite_minimisation.fitness_functions.MinimizingFitnessFunction;
 import de.uni_passau.fim.se2.sbse.suite_minimisation.stopping_conditions.StoppingCondition;
 
 import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Random;
+import java.util.Map;
 
 public class RandomSearch<C extends Chromosome<C>> implements GeneticAlgorithm<C> {
     private final ChromosomeGenerator<C> chromosomeGenerator;
@@ -32,78 +31,63 @@ public class RandomSearch<C extends Chromosome<C>> implements GeneticAlgorithm<C
         stoppingCondition.notifySearchStarted();
         // Collect all solutions during the search
         while (!stoppingCondition.searchMustStop()) {
+            C candidate = chromosomeGenerator.get();
             // Generate 3 candidates per iteration (like CODE 1)
-            for (int i = 0; i < 3; i++) {
-                C candidate = chromosomeGenerator.get();
-                solutions.add(candidate);
+            for (FitnessFunction<C> fitnessFunction : fitnessFunctions) {
+
+                fitnessFunction.applyAsDouble(candidate);
             }
+            solutions.add(candidate);
             stoppingCondition.notifyFitnessEvaluation();
         }
 
         // Build Pareto front from all collected solutions at the end
-        List<C> paretoFront = findParetoFront(solutions);
-        return paretoFront;
+        List<List<C>> paretoFront = findParetoFront(solutions);
+        return paretoFront.isEmpty() ? List.of(chromosomeGenerator.get()) : paretoFront.get(0);
     }
 
     @Override
     public StoppingCondition getStoppingCondition() {
         return stoppingCondition;
     }
-    private List<C> findParetoFront(List<C> solutions) {
-        List<C> paretoFront = new ArrayList<>();
+    private List<List<C>>  findParetoFront(List<C> solutions) {
+        Map<C, Integer> dominationCount = new HashMap<>();
+        Map<C, List<C>> dominatedSolutions = new HashMap<>();
 
-        for (int i = 0; i < solutions.size(); i++) {
-            C candidate = solutions.get(i);
+        // Initialize maps
+        for (C individual : solutions) {
+            dominationCount.put(individual, 0);
+            dominatedSolutions.put(individual, new ArrayList<>());
+        }
 
-            // Skip invalid solutions
-            if (!isValidSolution(candidate)) {
-                continue;
+        // Build fronts
+        List<List<C>> fronts = new ArrayList<>();
+        List<C> currentFront = new ArrayList<>();
+
+        // First front: solutions with domination count = 0
+        for (C individual : solutions) {
+            if (dominationCount.get(individual) == 0) {
+                currentFront.add(individual);
             }
+        }
 
-            boolean isDominated = false;
+        // Build subsequent fronts
+        while (!currentFront.isEmpty()) {
+            fronts.add(new ArrayList<>(currentFront));
+            List<C> nextFront = new ArrayList<>();
 
-            // Check if this solution is dominated by any other solution
-            for (int j = 0; j < solutions.size(); j++) {
-                if (i != j && isValidSolution(solutions.get(j)) && dominates(solutions.get(j), candidate)) {
-                    isDominated = true;
-                    break;
+            for (C individual : currentFront) {
+                for (C dominated : dominatedSolutions.get(individual)) {
+                    dominationCount.put(dominated, dominationCount.get(dominated) - 1);
+                    if (dominationCount.get(dominated) == 0) {
+                        nextFront.add(dominated);
+                    }
                 }
             }
 
-            // Add to Pareto front if not dominated
-            if (!isDominated) {
-                paretoFront.add(candidate);
-            }
+            currentFront = nextFront;
         }
 
-        return paretoFront;
+        return fronts;
     }
-
-    private boolean isValidSolution(C candidate) {
-        double size = fitnessFunctions.get(0).applyAsDouble(candidate);
-        double coverage = fitnessFunctions.get(1).applyAsDouble(candidate);
-        return size > 0 && coverage > 0;
     }
-
-    private boolean dominates(C solution1, C solution2) {
-        boolean atLeastOneBetter = false;
-
-        for (FitnessFunction<C> ff : fitnessFunctions) {
-            double fitness1 = ff.applyAsDouble(solution1);
-            double fitness2 = ff.applyAsDouble(solution2);
-
-            if (ff instanceof MinimizingFitnessFunction) {
-                // For minimization: lower is better
-                if (fitness1 > fitness2) return false;  // solution1 is worse
-                if (fitness1 < fitness2) atLeastOneBetter = true;  // solution1 is better
-            } else {
-                // For maximization: higher is better
-                if (fitness1 < fitness2) return false;  // solution1 is worse
-                if (fitness1 > fitness2) atLeastOneBetter = true;  // solution1 is better
-            }
-        }
-
-        return atLeastOneBetter;
-    }
-
-}

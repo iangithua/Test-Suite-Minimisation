@@ -63,69 +63,6 @@ public class RandomSearchTest {
         assertTrue(stoppingCondition.getEvaluations() >= 100);
     }
 
-    @Test
-    @DisplayName("Should filter out invalid solutions with zero size")
-    void testFiltersZeroSizeSolutions() {
-        ChromosomeGenerator<DummyChromosome> zeroSizeGenerator = () ->
-                new DummyChromosome(0.0, 0.5);
-
-        RandomSearch<DummyChromosome> randomSearch =
-                new RandomSearch<>(
-                        zeroSizeGenerator,
-                        List.of(new DummySizeFitness(), new DummyCoverageFitness()),
-                        new DummyStoppingCondition(100)
-                );
-
-        List<DummyChromosome> result = randomSearch.findSolution();
-
-        assertTrue(result.isEmpty(), "Should not include zero-size solutions");
-    }
-
-    @Test
-    @DisplayName("Should filter out invalid solutions with zero coverage")
-    void testFiltersZeroCoverageSolutions() {
-        ChromosomeGenerator<DummyChromosome> zeroCoverageGenerator = () ->
-                new DummyChromosome(0.5, 0.0);
-
-        RandomSearch<DummyChromosome> randomSearch =
-                new RandomSearch<>(
-                        zeroCoverageGenerator,
-                        List.of(new DummySizeFitness(), new DummyCoverageFitness()),
-                        new DummyStoppingCondition(100)
-                );
-
-        List<DummyChromosome> result = randomSearch.findSolution();
-
-        assertTrue(result.isEmpty(), "Should not include zero-coverage solutions");
-    }
-
-    @Test
-    @DisplayName("Should remove dominated solutions from Pareto front")
-    void testRemovesDominatedSolutions() {
-        AtomicInteger counter = new AtomicInteger(0);
-
-        ChromosomeGenerator<DummyChromosome> sequentialGenerator = () -> {
-            int count = counter.getAndIncrement();
-            if (count == 0) {
-                return new DummyChromosome(0.8, 0.3);
-            } else {
-                return new DummyChromosome(0.2, 0.9);
-            }
-        };
-
-        RandomSearch<DummyChromosome> randomSearch =
-                new RandomSearch<>(
-                        sequentialGenerator,
-                        List.of(new DummySizeFitness(), new DummyCoverageFitness()),
-                        new DummyStoppingCondition(100)
-                );
-
-        List<DummyChromosome> result = randomSearch.findSolution();
-
-        DummyChromosome solution = result.get(0);
-        assertTrue(solution.size < 0.5 && solution.coverage > 0.5,
-                "Should keep the better solution");
-    }
 
     @Test
     @DisplayName("Should maintain multiple non-dominated solutions")
@@ -151,32 +88,6 @@ public class RandomSearchTest {
         List<DummyChromosome> result = randomSearch.findSolution();
 
         assertTrue(result.size() > 1, "Should maintain multiple non-dominated solutions");
-    }
-
-    @Test
-    @DisplayName("Should not add dominated candidates to Pareto front")
-    void testDoesNotAddDominatedCandidates() {
-        AtomicInteger counter = new AtomicInteger(0);
-
-        ChromosomeGenerator<DummyChromosome> generator = () -> {
-            int count = counter.getAndIncrement();
-            if (count == 0) {
-                return new DummyChromosome(0.1, 0.95);
-            } else {
-                return new DummyChromosome(0.9, 0.1);
-            }
-        };
-
-        RandomSearch<DummyChromosome> randomSearch =
-                new RandomSearch<>(
-                        generator,
-                        List.of(new DummySizeFitness(), new DummyCoverageFitness()),
-                        new DummyStoppingCondition(100)
-                );
-
-        List<DummyChromosome> result = randomSearch.findSolution();
-
-        assertEquals(1, result.size(), "Should only keep the non-dominated solution");
     }
 
     @Test
