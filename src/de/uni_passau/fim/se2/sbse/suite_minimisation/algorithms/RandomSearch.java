@@ -40,6 +40,7 @@ public class RandomSearch<C extends Chromosome<C>> implements GeneticAlgorithm<C
                 // Generate base candidate
                 C base = chromosomeGenerator.get();
 
+
                 // Apply multiple mutations (2-5 times)
                 int mutationCount = 2 + random.nextInt(4);
                 candidate = base;
