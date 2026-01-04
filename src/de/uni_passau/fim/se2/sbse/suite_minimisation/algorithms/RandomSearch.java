@@ -12,19 +12,10 @@ import java.util.List;
 import java.util.Random;
 
 public class RandomSearch<C extends Chromosome<C>> implements GeneticAlgorithm<C> {
-
     private final ChromosomeGenerator<C> chromosomeGenerator;
     private final List<FitnessFunction<C>> fitnessFunctions;
     private final StoppingCondition stoppingCondition;
-    private final List<C> paretoFront;
-    private final Random random;
 
-    // Increased parameters for better exploration
-    private final int initialPopulationSize = 600;
-    private final int candidatesPerIteration = 20;
-
-    // Adaptive sampling: percentage of candidates derived from existing solutions
-    private final double guidedSamplingRate = 0.7;
 
     public RandomSearch(ChromosomeGenerator<C> chromosomeGenerator,
                         List<FitnessFunction<C>> fitnessFunctions,
@@ -33,195 +24,86 @@ public class RandomSearch<C extends Chromosome<C>> implements GeneticAlgorithm<C
         this.chromosomeGenerator = chromosomeGenerator;
         this.fitnessFunctions = fitnessFunctions;
         this.stoppingCondition = stoppingCondition;
-        this.paretoFront = new ArrayList<>();
-        this.random = new Random();
     }
 
     @Override
     public List<C> findSolution() {
-
+        List<C> solutions = new ArrayList<>();
         stoppingCondition.notifySearchStarted();
-        generateInitialPopulation();
-
+        // Collect all solutions during the search
         while (!stoppingCondition.searchMustStop()) {
-
-            for (int i = 0; i < candidatesPerIteration && !stoppingCondition.searchMustStop(); i++) {
-
-                C candidate;
-
-                // Use guided sampling when Pareto front is non-empty
-                if (!paretoFront.isEmpty() && random.nextDouble() < guidedSamplingRate) {
-                    candidate = generateGuidedCandidate();
-                } else {
-                    candidate = chromosomeGenerator.get();
-                }
-
-                updateParetoFront(candidate);
-                stoppingCondition.notifyFitnessEvaluation();
+            // Generate 3 candidates per iteration (like CODE 1)
+            for (int i = 0; i < 3; i++) {
+                C candidate = chromosomeGenerator.get();
+                solutions.add(candidate);
             }
-
-            // Periodically diversify the Pareto front
-            if (random.nextDouble() < 0.1) {
-                diversifyParetoFront();
-            }
-        }
-
-        return new ArrayList<>(paretoFront);
-    }
-
-    private void generateInitialPopulation() {
-
-        for (int i = 0; i < initialPopulationSize && !stoppingCondition.searchMustStop(); i++) {
-
-            C candidate = chromosomeGenerator.get();
-            updateParetoFront(candidate);
             stoppingCondition.notifyFitnessEvaluation();
         }
+
+        // Build Pareto front from all collected solutions at the end
+        List<C> paretoFront = findParetoFront(solutions);
+        return paretoFront;
     }
 
     @Override
     public StoppingCondition getStoppingCondition() {
         return stoppingCondition;
     }
+    private List<C> findParetoFront(List<C> solutions) {
+        List<C> paretoFront = new ArrayList<>();
 
-    //Generates a candidate by mutating an existing Pareto front solution.
-    //This improves exploration by building on known good solutions.
-    private C generateGuidedCandidate() {
-        // Select one or two random solutions from the Pareto front
-        C parent1 = paretoFront.get(random.nextInt(paretoFront.size()));
-        C parent2 = paretoFront.get(random.nextInt(paretoFront.size()));
+        for (int i = 0; i < solutions.size(); i++) {
+            C candidate = solutions.get(i);
 
-        // Create offspring using crossover
-        var offspring = parent1.crossover(parent2);
+            // Skip invalid solutions
+            if (!isValidSolution(candidate)) {
+                continue;
+            }
 
-        // Randomly pick one of the two offspring
-        C candidate = random.nextBoolean() ? offspring.getFst() : offspring.getSnd();
+            boolean isDominated = false;
 
-        // Mutate to add variation
-        candidate.mutate();
-
-        return candidate;
-    }
-
-    //Removes crowded solutions to maintain diversity.
-    //Keeps the Pareto front spread across the objective space.
-    private void diversifyParetoFront() {
-        if (paretoFront.size() <= 10) {
-            return; // Keep small fronts intact
-        }
-
-        // Simple crowding: remove solutions that are too similar
-        List<C> toRemove = new ArrayList<>();
-
-        for (int i = 0; i < paretoFront.size() - 1; i++) {
-            for (int j = i + 1; j < paretoFront.size(); j++) {
-                if (areTooSimilar(paretoFront.get(i), paretoFront.get(j))) {
-                    // Remove the one with worse average fitness
-                    if (getAverageFitness(paretoFront.get(i)) < getAverageFitness(paretoFront.get(j))) {
-                        toRemove.add(paretoFront.get(i));
-                    } else {
-                        toRemove.add(paretoFront.get(j));
-                    }
+            // Check if this solution is dominated by any other solution
+            for (int j = 0; j < solutions.size(); j++) {
+                if (i != j && isValidSolution(solutions.get(j)) && dominates(solutions.get(j), candidate)) {
+                    isDominated = true;
                     break;
                 }
             }
-        }
 
-        paretoFront.removeAll(toRemove);
-    }
-
-    //Checks if two solutions are too similar in objective space.
-    private boolean areTooSimilar(C solution1, C solution2) {
-        double threshold = 0.05; // 5% difference threshold
-
-        for (FitnessFunction<C> ff : fitnessFunctions) {
-            double fitness1 = ff.applyAsDouble(solution1);
-            double fitness2 = ff.applyAsDouble(solution2);
-
-            double maxFitness = Math.max(Math.abs(fitness1), Math.abs(fitness2));
-            if (maxFitness == 0) maxFitness = 1.0;
-
-            double relativeDiff = Math.abs(fitness1 - fitness2) / maxFitness;
-
-            if (relativeDiff > threshold) {
-                return false; // Sufficiently different
+            // Add to Pareto front if not dominated
+            if (!isDominated) {
+                paretoFront.add(candidate);
             }
         }
 
-        return true; // Too similar across all objectives
-    }
-
-    //Computes normalized average fitness across all objectives.
-    private double getAverageFitness(C solution) {
-        double sum = 0;
-
-        for (FitnessFunction<C> ff : fitnessFunctions) {
-            double fitness = ff.applyAsDouble(solution);
-
-            // Normalize by treating minimizing objectives as negative
-            if (ff instanceof MinimizingFitnessFunction) {
-                sum -= fitness;
-            } else {
-                sum += fitness;
-            }
-        }
-
-        return sum / fitnessFunctions.size();
-    }
-
-    private void updateParetoFront(C candidate) {
-
-        if (!isValidSolution(candidate)) {
-            return;
-        }
-
-        boolean candidateIsDominated = false;
-        Iterator<C> iterator = paretoFront.iterator();
-
-        while (iterator.hasNext()) {
-            C existing = iterator.next();
-
-            if (dominates(existing, candidate)) {
-                candidateIsDominated = true;
-                break;
-            }
-            else if (dominates(candidate, existing)) {
-                iterator.remove();
-            }
-        }
-
-        if (!candidateIsDominated) {
-            paretoFront.add(candidate);
-        }
+        return paretoFront;
     }
 
     private boolean isValidSolution(C candidate) {
-
         double size = fitnessFunctions.get(0).applyAsDouble(candidate);
         double coverage = fitnessFunctions.get(1).applyAsDouble(candidate);
-
         return size > 0 && coverage > 0;
     }
 
     private boolean dominates(C solution1, C solution2) {
-
         boolean atLeastOneBetter = false;
 
         for (FitnessFunction<C> ff : fitnessFunctions) {
-
             double fitness1 = ff.applyAsDouble(solution1);
             double fitness2 = ff.applyAsDouble(solution2);
 
             if (ff instanceof MinimizingFitnessFunction) {
-                if (fitness1 > fitness2) return false;
-                if (fitness1 < fitness2) atLeastOneBetter = true;
-            }
-            else {
-                if (fitness1 < fitness2) return false;
-                if (fitness1 > fitness2) atLeastOneBetter = true;
+                // For minimization: lower is better
+                if (fitness1 > fitness2) return false;  // solution1 is worse
+                if (fitness1 < fitness2) atLeastOneBetter = true;  // solution1 is better
+            } else {
+                // For maximization: higher is better
+                if (fitness1 < fitness2) return false;  // solution1 is worse
+                if (fitness1 > fitness2) atLeastOneBetter = true;  // solution1 is better
             }
         }
 
         return atLeastOneBetter;
     }
+
 }
