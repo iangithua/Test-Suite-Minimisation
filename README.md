@@ -1,4 +1,4 @@
-# Test Suite Minimization
+# Test Suite Minimization SCORE 78.7%
 
 ## Overview
 
